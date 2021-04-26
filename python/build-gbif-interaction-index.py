@@ -19,10 +19,6 @@ def get_index():
     return create_in("index", schema=schema, indexname="resource_relationship")
 
 
-batch_size = 100
-limitmb = 512
-procs = 6
-
 def progressBar(iterable, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
     """
     Call in a loop to create terminal progress bar
@@ -53,6 +49,9 @@ def progressBar(iterable, prefix = '', suffix = '', decimals = 1, length = 100, 
     print()
 
 # main
+limitmb = 512
+procs = 6
+
 results = occ.search(dwca_extension="http://rs.tdwg.org/dwc/terms/ResourceRelationship", limit=0, facet="datasetKey", facetLimit=1000)
 
 ix = get_index()
@@ -62,28 +61,37 @@ for r in progressBar(results['facets'][0]['counts'], prefix="Progress", suffix="
     dwca_file = f'./datasets/{datasetKey}.zip'
 
     if not os.path.isfile(dwca_file) :
-        dataset = registry.datasets(uuid=datasetKey)
-        dwca_endpoints = [e for e in dataset['endpoints'] if e['type'] == 'DWC_ARCHIVE']
-        if len(dwca_endpoints) > 0 :
-            url = dwca_endpoints[0]['url']
-            req = requests.get(url, stream=True)
+        try:
+            pass
+            dataset = registry.datasets(uuid=datasetKey)
+            dwca_endpoints = [e for e in dataset['endpoints'] if e['type'] == 'DWC_ARCHIVE']
+            if len(dwca_endpoints) > 0 :
+                url = dwca_endpoints[0]['url']
+                req = requests.get(url, stream=True)
 
-            with open(dwca_file, 'wb') as fd:
-                for chunk in req.iter_content(chunk_size=512) :
-                    fd.write(chunk)
+                with open(dwca_file, 'wb') as fd:
+                    for chunk in req.iter_content(chunk_size=512) :
+                        fd.write(chunk)
+        except Exception as e:
+            print(e)
+            continue
 
     with DwCAReader(dwca_file) as dwca:
-        for row in dwca:
-            with ix.writer(limitmb=limitmb, procs=procs) as writer:
-                for ext in row.extensions:
-                    if ext.rowtype == "http://rs.tdwg.org/dwc/terms/ResourceRelationship" and 'http://rs.tdwg.org/dwc/terms/relationshipOfResource' in ext.data:
-                        writer.add_document(
-                            uuid=datasetKey,
-                            resourceID=ext.data['http://rs.tdwg.org/dwc/terms/resourceID'] if 'http://rs.tdwg.org/dwc/terms/resourceID' in ext.data else ext.core_id,
-                            relatedResourceID=ext.data['http://rs.tdwg.org/dwc/terms/relatedResourceID'] if 'http://rs.tdwg.org/dwc/terms/relatedResourceID' in ext.data else None,
-                            relationshipOfResource=ext.data['http://rs.tdwg.org/dwc/terms/relationshipOfResource'],
-                            relationshipRemarks=(ext.data['http://rs.tdwg.org/dwc/terms/relationshipRemarks'] if 'http://rs.tdwg.org/dwc/terms/relationshipRemarks' in ext.data else None)
-                        )
+        try:
+            for row in dwca:
+                with ix.writer(limitmb=limitmb, procs=procs) as writer:
+                    for ext in row.extensions:
+                        if ext.rowtype == "http://rs.tdwg.org/dwc/terms/ResourceRelationship" and 'http://rs.tdwg.org/dwc/terms/relationshipOfResource' in ext.data:
+                            writer.add_document(
+                                uuid=datasetKey,
+                                resourceID=ext.data['http://rs.tdwg.org/dwc/terms/resourceID'] if 'http://rs.tdwg.org/dwc/terms/resourceID' in ext.data else ext.core_id,
+                                relatedResourceID=ext.data['http://rs.tdwg.org/dwc/terms/relatedResourceID'] if 'http://rs.tdwg.org/dwc/terms/relatedResourceID' in ext.data else None,
+                                relationshipOfResource=ext.data['http://rs.tdwg.org/dwc/terms/relationshipOfResource'],
+                                relationshipRemarks=(ext.data['http://rs.tdwg.org/dwc/terms/relationshipRemarks'] if 'http://rs.tdwg.org/dwc/terms/relationshipRemarks' in ext.data else None)
+                            )
+        except Exception as e:
+            print(e)
+            break
 
 
 
