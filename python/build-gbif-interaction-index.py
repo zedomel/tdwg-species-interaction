@@ -13,10 +13,10 @@ from dwca.read import DwCAReader
 from dwca.darwincore.utils import qualname as qn
 
 
-def get_index():
+def get_index(indexDir = 'index'):
     stem_ana = StemmingAnalyzer(cachesize=-1)
     schema = Schema(uuid=TEXT(stored=True), resourceID=TEXT(stored=True), relatedResourceID=TEXT(stored=True), relationshipOfResource=TEXT(analyzer=stem_ana, stored=True), relationshipRemarks=TEXT(analyzer=stem_ana, stored=True))
-    return create_in("index", schema=schema, indexname="resource_relationship")
+    return create_in(indexDir, schema=schema, indexname="resource_relationship")
 
 
 def progressBar(iterable, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
@@ -51,14 +51,16 @@ def progressBar(iterable, prefix = '', suffix = '', decimals = 1, length = 100, 
 # main
 limitmb = 512
 procs = 6
+datasetsDir = './datasets/'
+indexDir = './index/'
 
 results = occ.search(dwca_extension="http://rs.tdwg.org/dwc/terms/ResourceRelationship", limit=0, facet="datasetKey", facetLimit=1000)
 
-ix = get_index()
+ix = get_index(indexDir)
 
 for r in progressBar(results['facets'][0]['counts'], prefix="Progress", suffix="Complete"):
     datasetKey = r['name']
-    dwca_file = f'./datasets/{datasetKey}.zip'
+    dwca_file = f'{datasetsDir}{datasetKey}.zip'
 
     if not os.path.isfile(dwca_file) :
         try:
